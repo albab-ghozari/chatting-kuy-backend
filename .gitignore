@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Environment variables (RAHASIA - jangan pernah di-commit)
+.env
+.env.local
+.env.production
+
+# Prisma
+prisma/migrations/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
