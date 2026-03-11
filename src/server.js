@@ -9,7 +9,13 @@ const chatSocket = require("./socket/chatSocket")
 const server = http.createServer(app)
 
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'https://chatting-kuy.vercel.app'
+    ],
+    credentials: true
+  }
 })
 
 // Simpan io ke app agar bisa diakses dari controller (authController dll)
