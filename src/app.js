@@ -10,7 +10,7 @@ const app = express()
 app.use(cors({
    origin: [
       'http://localhost:5173',
-      'https://chatting-kuy.vercel.app'
+      'https://chatting-kuy-fawn.vercel.app'
    ],
    credentials: true
 }))
