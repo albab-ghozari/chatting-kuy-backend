@@ -6,6 +6,7 @@ module.exports = (io) => {
 
       socket.on("join", (userId) => {
          onlineUsers.set(String(userId), socket.id)
+         io.emit('user_online', { userId: Number(userId) })
       })
 
       socket.on("join_room", (conversationId) => {
@@ -79,7 +80,10 @@ module.exports = (io) => {
 
       socket.on("disconnect", () => {
          for (const [key, value] of onlineUsers.entries()) {
-            if (value === socket.id) onlineUsers.delete(key)
+            if (value === socket.id) {
+               onlineUsers.delete(key)
+               io.emit('user_offline', { userId: Number(key) })
+            }
          }
       })
 
