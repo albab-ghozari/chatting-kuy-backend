@@ -60,22 +60,37 @@ exports.createConversation = async (req, res) => {
   if (Number(targetUserId) === userId)
     return res.status(400).json({ message: "Tidak bisa chat dengan diri sendiri" })
 
+  // Cek existing dengan query yang lebih kuat
   const existing = await prisma.conversation.findFirst({
     where: {
       AND: [
-        { participants: { some: { userId } } },
+        { participants: { some: { userId: Number(userId) } } },
         { participants: { some: { userId: Number(targetUserId) } } }
       ]
-    }
+    },
+    include: { participants: { include: { user: true } } }
   })
 
-  if (existing) return res.json(existing)
+  if (existing) {
+    // Kembalikan format yang sama dengan conversation baru
+    const other = existing.participants.find((p) => p.userId !== userId)?.user
+    return res.json({
+      id: existing.id,
+      name: other?.username ?? "Unknown",
+      otherUserId: other?.id,
+      otherAvatar: other?.avatar ?? null,
+      lastMessage: null,
+      lastMessageAt: existing.createdAt,
+      createdAt: existing.createdAt,
+      unread: 0
+    })
+  }
 
   const conversation = await prisma.conversation.create({
     data: {
       participants: {
         create: [
-          { userId },
+          { userId: Number(userId) },
           { userId: Number(targetUserId) }
         ]
       }
@@ -83,7 +98,17 @@ exports.createConversation = async (req, res) => {
     include: { participants: { include: { user: true } } }
   })
 
-  res.status(201).json(conversation)
+  const other = conversation.participants.find((p) => p.userId !== userId)?.user
+  res.status(201).json({
+    id: conversation.id,
+    name: other?.username ?? "Unknown",
+    otherUserId: other?.id,
+    otherAvatar: other?.avatar ?? null,
+    lastMessage: null,
+    lastMessageAt: conversation.createdAt,
+    createdAt: conversation.createdAt,
+    unread: 0
+  })
 }
 
 // GET /api/conversations/users?q=keyword
