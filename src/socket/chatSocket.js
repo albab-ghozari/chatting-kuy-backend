@@ -6,7 +6,11 @@ module.exports = (io) => {
 
       socket.on("join", (userId) => {
          onlineUsers.set(String(userId), socket.id)
+         // Broadcast ke semua bahwa user ini online
          io.emit('user_online', { userId: Number(userId) })
+         // Kirim list semua user online ke user yang baru join
+         const onlineIds = [...onlineUsers.keys()].map(Number)
+         socket.emit('online_users', { userIds: onlineIds })
       })
 
       socket.on("join_room", (conversationId) => {
