@@ -23,29 +23,29 @@ module.exports = (io) => {
             include: { sender: true }
          })
 
-         // Cari semua participant selain pengirim
          const participants = await prisma.participant.findMany({
             where: { conversationId: Number(data.conversationId) }
          })
 
+         console.log('📨 send_message convId:', data.conversationId, 'room:', data.room)
+         console.log('👥 participants:', participants.map(p => p.userId))
+         console.log('🟢 onlineUsers:', [...onlineUsers.entries()])
+
          for (const p of participants) {
-            if (Number(p.userId) === Number(data.senderId)) continue // skip pengirim
+            if (Number(p.userId) === Number(data.senderId)) continue
 
             const socketId = onlineUsers.get(String(p.userId))
-            if (!socketId) continue
-
-            const recipientSocket = io.sockets.sockets.get(socketId)
+            const recipientSocket = socketId ? io.sockets.sockets.get(socketId) : null
             const inRoom = recipientSocket?.rooms?.has(String(data.room))
 
-            if (inRoom) {
-               // Sudah di room — emit via room (sudah dapat dari io.to(room))
-            } else {
-               // Tidak di room — emit langsung agar notifikasi sampai
+            console.log(`👤 user ${p.userId} | socketId: ${socketId} | inRoom: ${inRoom}`)
+
+            if (socketId && !inRoom) {
                io.to(socketId).emit("receive_message", message)
+               console.log(`✅ emit langsung ke user ${p.userId}`)
             }
          }
 
-         // Emit ke room untuk user yang sedang buka conversation
          io.to(String(data.room)).emit("receive_message", message)
       })
 
