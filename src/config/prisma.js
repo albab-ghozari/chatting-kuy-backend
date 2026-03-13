@@ -28,8 +28,4 @@ async function connectWithRetry(retries = 5, delay = 3000) {
 
 connectWithRetry()
 
-prisma.$on('beforeExit', async () => {
-  await prisma.$disconnect()
-})
-
 module.exports = prisma
