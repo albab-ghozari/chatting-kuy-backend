@@ -12,15 +12,17 @@ const io = new Server(server, {
   cors: {
     origin: [
       'http://localhost:5173',
-      'https://chatting-kuy-fawn.vercel.app'
+      'https://chatting-kuy.vercel.app',
+      'https://chatting-kuy-fawn.vercel.app',
+      /\.vercel\.app$/
     ],
     credentials: true
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 })
 
-// Simpan io ke app agar bisa diakses dari controller (authController dll)
 app.set('io', io)
-
 chatSocket(io)
 
 const PORT = process.env.PORT || 3000
