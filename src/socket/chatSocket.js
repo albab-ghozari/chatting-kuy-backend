@@ -1,14 +1,13 @@
 const prisma = require("../config/prisma")
 const onlineUsers = require("../utils/onlineUsers")
+const { sendPushToUser } = require("../controllers/pushController")
 
 module.exports = (io) => {
    io.on("connection", (socket) => {
 
       socket.on("join", (userId) => {
          onlineUsers.set(String(userId), socket.id)
-         // Broadcast ke semua bahwa user ini online
          io.emit('user_online', { userId: Number(userId) })
-         // Kirim list semua user online ke user yang baru join
          const onlineIds = [...onlineUsers.keys()].map(Number)
          socket.emit('online_users', { userIds: onlineIds })
       })
@@ -31,10 +30,6 @@ module.exports = (io) => {
             where: { conversationId: Number(data.conversationId) }
          })
 
-         console.log('📨 send_message convId:', data.conversationId, 'room:', data.room)
-         console.log('👥 participants:', participants.map(p => p.userId))
-         console.log('🟢 onlineUsers:', [...onlineUsers.entries()])
-
          for (const p of participants) {
             if (Number(p.userId) === Number(data.senderId)) continue
 
@@ -42,11 +37,18 @@ module.exports = (io) => {
             const recipientSocket = socketId ? io.sockets.sockets.get(socketId) : null
             const inRoom = recipientSocket?.rooms?.has(String(data.room))
 
-            console.log(`👤 user ${p.userId} | socketId: ${socketId} | inRoom: ${inRoom}`)
-
             if (socketId && !inRoom) {
+               // User online tapi tidak di room — kirim via socket
                io.to(socketId).emit("receive_message", message)
-               console.log(`✅ emit langsung ke user ${p.userId}`)
+            }
+
+            if (!socketId) {
+               // User offline — kirim push notification
+               sendPushToUser(p.userId, {
+                  title: message.sender.username,
+                  body: message.content,
+                  conversationId: data.conversationId
+               }).catch(() => { })
             }
          }
 
