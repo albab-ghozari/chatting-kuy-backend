@@ -44,11 +44,16 @@ module.exports = (io) => {
 
             if (!socketId) {
                // User offline — kirim push notification
+               console.log(`📱 Kirim push ke user ${p.userId}`)
                sendPushToUser(p.userId, {
                   title: message.sender.username,
                   body: message.content,
                   conversationId: data.conversationId
-               }).catch(() => { })
+               }).then(() => {
+                  console.log(`✅ Push berhasil ke user ${p.userId}`)
+               }).catch((e) => {
+                  console.log(`❌ Push gagal ke user ${p.userId}:`, e.message)
+               })
             }
          }
 
