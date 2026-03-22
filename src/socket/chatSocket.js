@@ -18,11 +18,7 @@ module.exports = (io) => {
 
       socket.on("send_message", async (data) => {
          const message = await prisma.message.create({
-            data: {
-               content: data.content,
-               senderId: data.senderId,
-               conversationId: data.conversationId
-            },
+            data: { content: data.content, senderId: data.senderId, conversationId: data.conversationId },
             include: { sender: { select: { id: true, username: true, avatar: true } } }
          })
 
@@ -32,65 +28,33 @@ module.exports = (io) => {
 
          for (const p of participants) {
             if (Number(p.userId) === Number(data.senderId)) continue
-
             const socketId = onlineUsers.get(String(p.userId))
             const recipientSocket = socketId ? io.sockets.sockets.get(socketId) : null
             const inRoom = recipientSocket?.rooms?.has(String(data.room))
-
-            if (socketId && !inRoom) {
-               io.to(socketId).emit("receive_message", message)
-            }
-
+            if (socketId && !inRoom) io.to(socketId).emit("receive_message", message)
             if (!socketId) {
                sendPushToUser(p.userId, {
-                  title: message.sender.username,
-                  body: message.content,
-                  conversationId: data.conversationId
-               }).catch((e) => {
-                  console.log(`❌ Push gagal ke user ${p.userId}:`, e.message)
-               })
+                  title: message.sender.username, body: message.content, conversationId: data.conversationId
+               }).catch((e) => console.log(`❌ Push gagal ke user ${p.userId}:`, e.message))
             }
          }
-
          io.to(String(data.room)).emit("receive_message", message)
       })
 
       socket.on("typing", (data) => {
-         socket.to(String(data.room)).emit("typing", {
-            userId: data.userId,
-            room: data.room
-         })
+         socket.to(String(data.room)).emit("typing", { userId: data.userId, room: data.room })
       })
 
       socket.on("stop_typing", (data) => {
-         socket.to(String(data.room)).emit("stop_typing", {
-            userId: data.userId,
-            room: data.room
-         })
+         socket.to(String(data.room)).emit("stop_typing", { userId: data.userId, room: data.room })
       })
 
       socket.on("mark_read", async ({ conversationId, userId }) => {
          await prisma.message.updateMany({
-            where: {
-               conversationId: Number(conversationId),
-               senderId: { not: Number(userId) },
-               isRead: false
-            },
+            where: { conversationId: Number(conversationId), senderId: { not: Number(userId) }, isRead: false },
             data: { isRead: true }
          })
-         io.to(String(conversationId)).emit("messages_read", {
-            conversationId: Number(conversationId),
-            readBy: Number(userId)
-         })
-      })
-
-      // Event saat anggota ditambah/dikeluarkan dari grup — broadcast ke room
-      socket.on("group_member_added", ({ conversationId, user }) => {
-         io.to(String(conversationId)).emit("group_member_added", { conversationId, user })
-      })
-
-      socket.on("group_member_removed", ({ conversationId, userId }) => {
-         io.to(String(conversationId)).emit("group_member_removed", { conversationId, userId })
+         io.to(String(conversationId)).emit("messages_read", { conversationId: Number(conversationId), readBy: Number(userId) })
       })
 
       socket.on("disconnect", () => {
@@ -101,6 +65,5 @@ module.exports = (io) => {
             }
          }
       })
-
    })
 }
