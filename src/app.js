@@ -17,6 +17,7 @@ app.use(cors({
   credentials: true
 }))
 
+// Naikkan limit untuk support kirim foto base64 (max ~5MB)
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
