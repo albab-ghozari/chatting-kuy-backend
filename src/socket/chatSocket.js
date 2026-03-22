@@ -23,7 +23,7 @@ module.exports = (io) => {
                senderId: data.senderId,
                conversationId: data.conversationId
             },
-            include: { sender: true }
+            include: { sender: { select: { id: true, username: true, avatar: true } } }
          })
 
          const participants = await prisma.participant.findMany({
@@ -38,19 +38,14 @@ module.exports = (io) => {
             const inRoom = recipientSocket?.rooms?.has(String(data.room))
 
             if (socketId && !inRoom) {
-               // User online tapi tidak di room — kirim via socket
                io.to(socketId).emit("receive_message", message)
             }
 
             if (!socketId) {
-               // User offline — kirim push notification
-               console.log(`📱 Kirim push ke user ${p.userId}`)
                sendPushToUser(p.userId, {
                   title: message.sender.username,
                   body: message.content,
                   conversationId: data.conversationId
-               }).then(() => {
-                  console.log(`✅ Push berhasil ke user ${p.userId}`)
                }).catch((e) => {
                   console.log(`❌ Push gagal ke user ${p.userId}:`, e.message)
                })
@@ -87,6 +82,15 @@ module.exports = (io) => {
             conversationId: Number(conversationId),
             readBy: Number(userId)
          })
+      })
+
+      // Event saat anggota ditambah/dikeluarkan dari grup — broadcast ke room
+      socket.on("group_member_added", ({ conversationId, user }) => {
+         io.to(String(conversationId)).emit("group_member_added", { conversationId, user })
+      })
+
+      socket.on("group_member_removed", ({ conversationId, userId }) => {
+         io.to(String(conversationId)).emit("group_member_removed", { conversationId, userId })
       })
 
       socket.on("disconnect", () => {
