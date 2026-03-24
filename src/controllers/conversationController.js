@@ -197,6 +197,7 @@ exports.addMember = async (req, res) => {
     })
 
     // Socket notification ke new member
+    const onlineUsers = require("../utils/onlineUsers")
     const io = req.app?.get('io')
     if (io && user && conversation.groupName) {
       const newMemberSocketId = onlineUsers.get(String(user.id))
