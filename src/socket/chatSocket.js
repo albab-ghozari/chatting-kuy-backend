@@ -2,6 +2,9 @@ const prisma = require("../config/prisma")
 const onlineUsers = require("../utils/onlineUsers")
 const { sendPushToUser } = require("../controllers/pushController")
 
+// Batas ukuran pesan: 5MB (untuk foto base64)
+const MAX_CONTENT_SIZE = 5 * 1024 * 1024;
+
 module.exports = (io) => {
    io.on("connection", (socket) => {
 
@@ -17,6 +20,13 @@ module.exports = (io) => {
       })
 
       socket.on("send_message", async (data) => {
+         // Validasi: content harus ada dan tidak melebihi batas
+         if (!data.content) return;
+         if (data.content.length > MAX_CONTENT_SIZE) {
+            socket.emit('error', { message: 'Ukuran pesan terlalu besar (max 5MB)' });
+            return;
+         }
+
          const message = await prisma.message.create({
             data: {
                content: data.content,
@@ -32,65 +42,37 @@ module.exports = (io) => {
 
          for (const p of participants) {
             if (Number(p.userId) === Number(data.senderId)) continue
-
             const socketId = onlineUsers.get(String(p.userId))
             const recipientSocket = socketId ? io.sockets.sockets.get(socketId) : null
             const inRoom = recipientSocket?.rooms?.has(String(data.room))
-
-            if (socketId && !inRoom) {
-               io.to(socketId).emit("receive_message", message)
-            }
-
+            if (socketId && !inRoom) io.to(socketId).emit("receive_message", message)
             if (!socketId) {
+               // Untuk foto, kirim notifikasi dengan teks placeholder
+               const isImage = String(data.content).startsWith('[image]');
                sendPushToUser(p.userId, {
                   title: message.sender.username,
-                  body: message.content,
+                  body: isImage ? '📷 Mengirim foto' : message.content,
                   conversationId: data.conversationId
-               }).catch((e) => {
-                  console.log(`❌ Push gagal ke user ${p.userId}:`, e.message)
-               })
+               }).catch((e) => console.log(`❌ Push gagal ke user ${p.userId}:`, e.message))
             }
          }
-
          io.to(String(data.room)).emit("receive_message", message)
       })
 
       socket.on("typing", (data) => {
-         socket.to(String(data.room)).emit("typing", {
-            userId: data.userId,
-            room: data.room
-         })
+         socket.to(String(data.room)).emit("typing", { userId: data.userId, room: data.room })
       })
 
       socket.on("stop_typing", (data) => {
-         socket.to(String(data.room)).emit("stop_typing", {
-            userId: data.userId,
-            room: data.room
-         })
+         socket.to(String(data.room)).emit("stop_typing", { userId: data.userId, room: data.room })
       })
 
       socket.on("mark_read", async ({ conversationId, userId }) => {
          await prisma.message.updateMany({
-            where: {
-               conversationId: Number(conversationId),
-               senderId: { not: Number(userId) },
-               isRead: false
-            },
+            where: { conversationId: Number(conversationId), senderId: { not: Number(userId) }, isRead: false },
             data: { isRead: true }
          })
-         io.to(String(conversationId)).emit("messages_read", {
-            conversationId: Number(conversationId),
-            readBy: Number(userId)
-         })
-      })
-
-      // Event saat anggota ditambah/dikeluarkan dari grup — broadcast ke room
-      socket.on("group_member_added", ({ conversationId, user }) => {
-         io.to(String(conversationId)).emit("group_member_added", { conversationId, user })
-      })
-
-      socket.on("group_member_removed", ({ conversationId, userId }) => {
-         io.to(String(conversationId)).emit("group_member_removed", { conversationId, userId })
+         io.to(String(conversationId)).emit("messages_read", { conversationId: Number(conversationId), readBy: Number(userId) })
       })
 
       socket.on("disconnect", () => {
@@ -101,6 +83,5 @@ module.exports = (io) => {
             }
          }
       })
-
    })
 }
