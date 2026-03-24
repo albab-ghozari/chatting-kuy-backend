@@ -178,21 +178,43 @@ exports.addMember = async (req, res) => {
     const convId = Number(req.params.id)
     const { targetUserId } = req.body
     const myParticipant = await prisma.participant.findUnique({
-      where: { userId_conversationId: { userId, conversationId: convId } }
+      where: { userId_conversationId: { userId, conversationId: convId } },
+      include: { conversation: true }
     })
     if (!myParticipant || myParticipant.role !== "admin")
       return res.status(403).json({ message: "Hanya admin yang bisa menambah anggota" })
+    
+    const conversation = myParticipant.conversation
     await prisma.participant.upsert({
       where: { userId_conversationId: { userId: Number(targetUserId), conversationId: convId } },
       update: {},
       create: { userId: Number(targetUserId), conversationId: convId, role: "member" }
     })
+    
     const user = await prisma.user.findUnique({
       where: { id: Number(targetUserId) },
       select: { id: true, username: true, avatar: true }
     })
+
+    // Socket notification ke new member
+    const io = req.app?.get('io')
+    if (io && user && conversation.groupName) {
+      const newMemberSocketId = onlineUsers.get(String(user.id))
+      if (newMemberSocketId) {
+        io.to(newMemberSocketId).emit('group_joined', {
+          conversationId: convId,
+          groupName: conversation.groupName,
+          addedBy: req.user.username,
+          message: `Kamu ditambahkan ke grup "${conversation.groupName}" oleh ${req.user.username}`
+        })
+        // Auto join room untuk new member
+        io.to(newMemberSocketId).emit('join_room', convId)
+      }
+    }
+    
     res.json({ message: "Anggota ditambahkan", user })
   } catch (e) {
+    console.error('addMember error:', e)
     res.status(500).json({ message: e.message })
   }
 }
