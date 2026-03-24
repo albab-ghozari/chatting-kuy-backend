@@ -72,7 +72,14 @@ module.exports = (io) => {
             where: { conversationId: Number(conversationId), senderId: { not: Number(userId) }, isRead: false },
             data: { isRead: true }
          })
+         // Broadcast ke semua di room + khusus ke sender jika online
          io.to(String(conversationId)).emit("messages_read", { conversationId: Number(conversationId), readBy: Number(userId) })
+         
+         // Pastikan sender juga terima event (race condition fix)
+         const senderSocketId = onlineUsers.get(String(userId))
+         if (senderSocketId) {
+            io.to(senderSocketId).emit("messages_read", { conversationId: Number(conversationId), readBy: Number(userId) })
+         }
       })
 
       socket.on("disconnect", () => {
