@@ -2,7 +2,6 @@ const prisma = require("../config/prisma")
 const onlineUsers = require("../utils/onlineUsers")
 const { sendPushToUser } = require("../controllers/pushController")
 
-// Batas ukuran pesan: 5MB (untuk foto base64)
 const MAX_CONTENT_SIZE = 5 * 1024 * 1024;
 
 module.exports = (io) => {
@@ -20,7 +19,6 @@ module.exports = (io) => {
       })
 
       socket.on("send_message", async (data) => {
-         // Validasi: content harus ada dan tidak melebihi batas
          if (!data.content) return;
          if (data.content.length > MAX_CONTENT_SIZE) {
             socket.emit('error', { message: 'Ukuran pesan terlalu besar (max 5MB)' });
@@ -47,7 +45,6 @@ module.exports = (io) => {
             const inRoom = recipientSocket?.rooms?.has(String(data.room))
             if (socketId && !inRoom) io.to(socketId).emit("receive_message", message)
             if (!socketId) {
-               // Untuk foto, kirim notifikasi dengan teks placeholder
                const isImage = String(data.content).startsWith('[image]');
                sendPushToUser(p.userId, {
                   title: message.sender.username,
@@ -72,14 +69,9 @@ module.exports = (io) => {
             where: { conversationId: Number(conversationId), senderId: { not: Number(userId) }, isRead: false },
             data: { isRead: true }
          })
-         // Broadcast ke semua di room + khusus ke sender jika online
+         // [B3 FIX] Cukup emit ke room saja — jangan double emit ke sender
+         // Sender sudah join_room sehingga sudah termasuk dalam io.to(room)
          io.to(String(conversationId)).emit("messages_read", { conversationId: Number(conversationId), readBy: Number(userId) })
-         
-         // Pastikan sender juga terima event (race condition fix)
-         const senderSocketId = onlineUsers.get(String(userId))
-         if (senderSocketId) {
-            io.to(senderSocketId).emit("messages_read", { conversationId: Number(conversationId), readBy: Number(userId) })
-         }
       })
 
       socket.on("disconnect", () => {
