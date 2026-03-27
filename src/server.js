@@ -20,6 +20,9 @@ const io = new Server(server, {
   },
   pingTimeout: 60000,
   pingInterval: 25000,
+  // Naikkan batas payload Socket.io untuk support kirim foto base64
+  // Default hanya 1MB — foto 4MB akan di-drop diam-diam tanpa error
+  maxHttpBufferSize: 10 * 1024 * 1024, // 10MB
 })
 
 app.set('io', io)
