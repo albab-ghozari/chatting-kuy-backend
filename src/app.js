@@ -10,12 +10,13 @@ const app = express()
 
 app.use(cors({
   origin: [
-    'http://localhost:5173',
-    'https://chatting-kuy-fawn.vercel.app',
-    /\.vercel\.app$/
+    "https://chatting-kuy-fawn.vercel.app",
+    "http://localhost:5173"
   ],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
-}))
+}));
 
 // Naikkan limit untuk support kirim foto base64 (max ~5MB)
 app.use(express.json({ limit: '10mb' }))
