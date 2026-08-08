@@ -37,6 +37,14 @@ app.use(express.urlencoded({
   limit: "10mb"
 }))
 
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Chatting Kuy Backend is running"
+  })
+})
+
+app.use("/api/auth", authRoutes)
 app.use("/api/auth", authRoutes)
 app.use("/api/conversations", conversationRoutes)
 app.use("/api/messages", messageRoutes)
